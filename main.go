@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	lib.BuildKctlList("https://github.com/kubernetes/kubectl.git")
+	lib.BuildKctlList()
 }

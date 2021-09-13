@@ -6,4 +6,5 @@ require (
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/go-git/go-git v4.7.0+incompatible // indirect
 	github.com/go-git/go-git/v5 v5.4.2 // indirect
+	github.com/google/go-github/v39 v39.0.0 // indirect
 )

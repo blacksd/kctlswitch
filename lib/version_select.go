@@ -1,53 +1,56 @@
 package lib
 
 import (
+	"context"
+	"fmt"
 	"log"
 
-	"github.com/go-git/go-git/v5" // with go modules enabled (GO111MODULE=on or outside GOPATH)
-	"github.com/go-git/go-git/v5/config"
-	"github.com/go-git/go-git/v5/storage/memory"
-
-	"github.com/Masterminds/semver"
+	"github.com/google/go-github/v39/github"
 )
 
 type kctlVersionList struct {
 	kctllist []string
 }
 
-func BuildKctlList(kubectlGitRepo string) kctlVersionList {
-	// Create the remote with repository URL
-	rem := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
-		Name: "origin",
-		URLs: []string{kubectlGitRepo},
-	})
+func BuildKctlList() kctlVersionList {
+	client := github.NewClient(nil)
 
-	log.Print("Fetching tags...")
+	listOptions := &github.ListOptions{PerPage: 50}
+	for {
+		tags, response, err := client.Repositories.ListTags(context.TODO(), "kubernetes", "kubectl", listOptions)
+		if response.NextPage == 0 {
+			break
+		}
+		listOptions.Page = response.NextPage
 
-	// We can then use every Remote functions to retrieve wanted information
-	refs, err := rem.List(&git.ListOptions{})
-	if err != nil {
-		log.Fatal(err)
-	}
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	// Filters the references list and only keeps tags
-	var tags []string
-	for _, ref := range refs {
-		if ref.Name().IsTag() {
-			_, err := semver.NewVersion(string(ref.Name().Short()))
-			if err == nil {
-				tags = append(tags, ref.Name().Short())
-			}
+		for _, tag := range tags {
+			fmt.Println(tag.GetName())
 		}
 	}
 
-	if len(tags) == 0 {
-		log.Println("No tags!")
-	}
+	// Filters the references list and only keeps tags
+	// var tags []string
+	// for _, release := range releases {
+	// 	if release.GetName() {
+	// 		_, err := semver.NewVersion(string(ref.Name().Short()))
+	// 		if err == nil {
+	// 			tags = append(tags, ref.Name().Short())
+	// 		}
+	// 	}
+	// }
 
-	log.Printf("Tags found: %v", tags)
+	//if len(tags) == 0 {
+	//	log.Println("No tags!")
+	//}
+	//
+	//log.Printf("Tags found: %v", tags)
 
 	return kctlVersionList{
-		kctllist: tags,
+		kctllist: []string{},
 	}
 }
 
