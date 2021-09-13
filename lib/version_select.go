@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/Masterminds/semver"
 	"github.com/google/go-github/v39/github"
 )
 
@@ -15,25 +16,33 @@ type kctlVersionList struct {
 func BuildKctlList() kctlVersionList {
 	client := github.NewClient(nil)
 
-	listOptions := &github.ListOptions{PerPage: 50}
+	var tag_list []string
+
+	listOptions := &github.ListOptions{Page: 2, PerPage: 30}
 	for {
 		tags, response, err := client.Repositories.ListTags(context.TODO(), "kubernetes", "kubectl", listOptions)
-		if response.NextPage == 0 {
-			break
-		}
-		listOptions.Page = response.NextPage
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		for _, tag := range tags {
-			fmt.Println(tag.GetName())
+			_, err := semver.NewVersion(tag.GetName())
+			if err == nil {
+				tag_list = append(tag_list, *tag.Name)
+				fmt.Println(*tag.Name)
+			}
+
 		}
+
+		if response.NextPage == 0 {
+			break
+		}
+		listOptions.Page = response.NextPage
 	}
 
 	// Filters the references list and only keeps tags
-	// var tags []string
+	//
 	// for _, release := range releases {
 	// 	if release.GetName() {
 	// 		_, err := semver.NewVersion(string(ref.Name().Short()))
@@ -50,7 +59,7 @@ func BuildKctlList() kctlVersionList {
 	//log.Printf("Tags found: %v", tags)
 
 	return kctlVersionList{
-		kctllist: []string{},
+		kctllist: tag_list,
 	}
 }
 
