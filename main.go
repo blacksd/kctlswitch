@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	lib.FetchGitTags()
+	lib.FetchGitTags("<= 1.7")
 }

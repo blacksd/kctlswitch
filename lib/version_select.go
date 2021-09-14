@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/Masterminds/semver"
+	"github.com/Masterminds/semver/v3"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 
@@ -80,11 +80,16 @@ func SelectKctlVersion(versionConstraint string, versionList kctlVersionList, in
 }
 */
 
-func FetchGitTags() []string {
+func FetchGitTags(constraint string) []string {
+	c, err := semver.NewConstraint(constraint)
+	if err != nil {
+		log.Fatal("The constraint is not valid.")
+	}
+
 	// Create the remote with repository URL
 	rem := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
-		URLs: []string{"https://github.com/kubernetes/kubectl.git"},
+		URLs: []string{"https://github.com/kubernetes/kubernetes.git"},
 	})
 
 	log.Print("Fetching tags...")
@@ -100,7 +105,7 @@ func FetchGitTags() []string {
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
 			// _, err := semver.NewVersion(string(ref.Name().Short()))
-			if err := validation.Validate(ref.Name().Short(), validation.By(validateTag)); err == nil {
+			if err := validation.Validate(ref.Name().Short(), validation.By(validateTag(*c))); err == nil {
 				tags = append(tags, ref.Name().Short())
 			}
 		}
@@ -116,12 +121,19 @@ func FetchGitTags() []string {
 }
 
 // TODO: add constraints as param
-func validateTag(value interface{}) error {
-	s, _ := value.(string)
-	if _, err := semver.NewVersion(s); err != nil {
-		return errors.New("The tag '" + s + "' is not semver compliant.")
+
+func validateTag(constraint semver.Constraints) validation.RuleFunc {
+	return func(value interface{}) error {
+		s, _ := value.(string)
+		ver, err := semver.NewVersion(s)
+		if err != nil {
+			return errors.New("The tag '" + s + "' is not semver compliant.")
+		}
+		if !constraint.Check(ver) {
+			return errors.New("The tag '" + s + "' is not within the constraints.")
+		}
+		return nil
 	}
-	return nil
 }
 
 // Output: must be abc
