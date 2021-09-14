@@ -2,10 +2,18 @@ package lib
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
 	"github.com/Masterminds/semver"
+
+	validation "github.com/go-ozzo/ozzo-validation/v4"
+
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/storage/memory"
+
 	"github.com/google/go-github/v39/github"
 )
 
@@ -71,3 +79,49 @@ func SelectKctlVersion(versionConstraint string, versionList kctlVersionList, in
 	}
 }
 */
+
+func FetchGitTags() []string {
+	// Create the remote with repository URL
+	rem := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
+		Name: "origin",
+		URLs: []string{"https://github.com/kubernetes/kubectl.git"},
+	})
+
+	log.Print("Fetching tags...")
+
+	// We can then use every Remote functions to retrieve wanted information
+	refs, err := rem.List(&git.ListOptions{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Filters the references list and only keeps tags
+	var tags []string
+	for _, ref := range refs {
+		if ref.Name().IsTag() {
+			// _, err := semver.NewVersion(string(ref.Name().Short()))
+			if err := validation.Validate(ref.Name().Short(), validation.By(validateTag)); err == nil {
+				tags = append(tags, ref.Name().Short())
+			}
+		}
+	}
+
+	if len(tags) == 0 {
+		log.Println("No tags!")
+	}
+
+	log.Printf("Tags found: %v", tags)
+
+	return tags
+}
+
+// TODO: add constraints as param
+func validateTag(value interface{}) error {
+	s, _ := value.(string)
+	if _, err := semver.NewVersion(s); err != nil {
+		return errors.New("The tag '" + s + "' is not semver compliant.")
+	}
+	return nil
+}
+
+// Output: must be abc

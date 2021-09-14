@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	lib.BuildKctlList()
+	lib.FetchGitTags()
 }
