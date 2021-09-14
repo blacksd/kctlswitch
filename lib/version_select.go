@@ -120,8 +120,6 @@ func FetchGitTags(constraint string) []string {
 	return tags
 }
 
-// TODO: add constraints as param
-
 func validateTag(constraint semver.Constraints) validation.RuleFunc {
 	return func(value interface{}) error {
 		s, _ := value.(string)
@@ -136,4 +134,5 @@ func validateTag(constraint semver.Constraints) validation.RuleFunc {
 	}
 }
 
-// Output: must be abc
+// TODO: select
+// TODO: download
