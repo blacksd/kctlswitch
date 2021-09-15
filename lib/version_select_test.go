@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	goodConstraint string = ">= 1.18"
-	badConstraint  string = "vers0.2.3.4.5"
+	goodConstraint  string = ">= 1.18"
+	badConstraint   string = "vers0.2.3.4.5"
+	emptyConstraint string = ""
 )
 
 func TestFetchGitTags(t *testing.T) {
@@ -27,24 +28,12 @@ func TestFetchGitTags(t *testing.T) {
 		if !strings.Contains(err.Error(), "improper constraint") {
 			t.Fatal("An invalid constraint did not failed.")
 		}
-
 	})
-}
 
-/*
-func TestValidateTag(t *testing.T) {
-
-	t.Run("ValidConstraint", func(t *testing.T) {
-		c, _ := semver.NewConstraint(goodConstraint)
-		if err := validateTag(*c); err != nil {
-			t.Fatal("Can't validate a good constraint.")
-		}
-	})
 	t.Run("EmptyConstraint", func(t *testing.T) {
-		c, _ := semver.NewConstraint("")
-		if err := validateTag(*c); err != nil {
-			t.Fatal("Can't validate an empty constraint.")
+		_, err := lib.FetchGitTags(emptyConstraint)
+		if strings.Contains(err.Error(), "improper constraint") {
+			t.Fatal("The empty constraint was not managed.")
 		}
 	})
 }
-*/
