@@ -80,10 +80,12 @@ func SelectKctlVersion(versionConstraint string, versionList kctlVersionList, in
 }
 */
 
-func FetchGitTags(constraint string) []string {
+func FetchGitTags(constraint string) ([]string, error) {
+	var tags []string
 	c, err := semver.NewConstraint(constraint)
 	if err != nil {
-		log.Fatal("The constraint is not valid.")
+		log.Print("The constraint is not valid.")
+		return nil, err
 	}
 
 	// Create the remote with repository URL
@@ -101,7 +103,7 @@ func FetchGitTags(constraint string) []string {
 	}
 
 	// Filters the references list and only keeps tags
-	var tags []string
+
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
 			// _, err := semver.NewVersion(string(ref.Name().Short()))
@@ -117,7 +119,7 @@ func FetchGitTags(constraint string) []string {
 
 	log.Printf("Tags found: %v", tags)
 
-	return tags
+	return tags, nil
 }
 
 func validateTag(constraint semver.Constraints) validation.RuleFunc {
