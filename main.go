@@ -5,5 +5,6 @@ import (
 )
 
 func main() {
-	lib.FetchGitTags("<= 1.7")
+	lib.KctlVersionsList("<= 1.7")
+	lib.DownloadKctl("v1.12.3", ".")
 }
