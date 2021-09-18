@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/schollz/progressbar/v3"
 )
@@ -84,6 +85,7 @@ func verifyKctlDownload(kctlVersion string, kctlFileLocation string) error {
 		log.Printf("Can't download sha512 checksums for version %s from %s.", kctlVersion, checksumURL)
 	}
 	bodyData, _ := ioutil.ReadAll(resp.Body)
+	checksumRef := strings.TrimSuffix(string(bodyData), "\n")
 
 	f, err := os.Open(kctlFileLocation)
 	if err != nil {
@@ -92,12 +94,14 @@ func verifyKctlDownload(kctlVersion string, kctlFileLocation string) error {
 	defer f.Close()
 
 	h := sha512.New()
-	if _, err := io.Copy(h, f); hex.EncodeToString(h.Sum(nil)) != string(bodyData) {
-		log.Printf("Error: expected checksum %s, instead got %s", hex.EncodeToString(h.Sum(nil)), string(bodyData))
+	if _, err := io.Copy(h, f); err != nil {
 		return err
 	}
+	checksumCalc := hex.EncodeToString(h.Sum(nil))
 
-	fmt.Printf("%x", h.Sum(nil))
+	if checksumCalc != checksumRef {
+		return fmt.Errorf("expected checksum %s, instead got %s", checksumRef, checksumCalc)
+	}
 
 	return nil
 }
