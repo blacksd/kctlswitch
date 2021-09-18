@@ -1,9 +1,12 @@
 package lib
 
 import (
+	"crypto/sha512"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -17,8 +20,12 @@ func DownloadKctl(kctlVersion string, installLocation string) error {
 	// TODO: check sha256
 	// TODO: check if file is already there
 	if path, err := validatePath(installLocation); err == nil {
-		if err := downloadFile(kctlVersion, fmt.Sprintf("%s/kubectl", path)); err != nil {
-			log.Fatalf("Can't download kubectl version %s", kctlVersion)
+		kctlFileLocation := fmt.Sprintf("%s/kubectl", path)
+		// if err := downloadFile(kctlVersion, kctlFileLocation); err != nil {
+		// 	log.Fatalf("Can't download kubectl version %s", kctlVersion)
+		// }
+		if err := verifyKctlDownload(kctlVersion, kctlFileLocation); err != nil {
+			log.Fatal("Checksum computation error.")
 		}
 	}
 
@@ -68,7 +75,29 @@ func validatePath(path string) (string, error) {
 	return path, nil
 }
 
-// func verifyKctlDownload(installLocation string) error {
-//
-// 	return nil
-// }
+func verifyKctlDownload(kctlVersion string, kctlFileLocation string) error {
+	checksumURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl.sha512", kctlVersion, runtime.GOOS, runtime.GOARCH)
+	log.Print(checksumURL)
+
+	resp, err := http.Get(checksumURL)
+	if err != nil {
+		log.Printf("Can't download sha512 checksums for version %s from %s.", kctlVersion, checksumURL)
+	}
+	bodyData, _ := ioutil.ReadAll(resp.Body)
+
+	f, err := os.Open(kctlFileLocation)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer f.Close()
+
+	h := sha512.New()
+	if _, err := io.Copy(h, f); hex.EncodeToString(h.Sum(nil)) != string(bodyData) {
+		log.Printf("Error: expected checksum %s, instead got %s", hex.EncodeToString(h.Sum(nil)), string(bodyData))
+		return err
+	}
+
+	fmt.Printf("%x", h.Sum(nil))
+
+	return nil
+}
