@@ -3,38 +3,37 @@ package lib
 import (
 	"crypto/sha512"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
 	"github.com/schollz/progressbar/v3"
 )
 
-func DownloadKctl(kctlVersion string, installLocation string) error {
+func DownloadKctl(version string, path string) error {
 
 	// TODO: check sha256
 	// TODO: check if file is already there
-	if path, err := validatePath(installLocation); err == nil {
-		kctlFileLocation := fmt.Sprintf("%s/kubectl", path)
-		if err := downloadFile(kctlVersion, kctlFileLocation); err != nil {
-			log.Fatalf("Can't download kubectl version %s", kctlVersion)
-		}
-		if err := verifyKctlDownload(kctlVersion, kctlFileLocation); err != nil {
-			log.Fatal("Checksum computation error.")
-		}
-	}
+	kctlFileLocation := fmt.Sprintf("%s/kubectl.%s", path, version)
 
+	if err := checkPath(version, kctlFileLocation); err != nil {
+		if err := downloadFile(version, kctlFileLocation); err != nil {
+			log.Fatalf("Can't download kubectl version %s", version)
+		}
+	} else {
+		log.Printf("Found a binary for version %s with the right checksum, skipping download.", version)
+	}
 	return nil
 }
 
-func downloadFile(kctlVersion string, path string) error {
-	url := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl", kctlVersion, runtime.GOOS, runtime.GOARCH)
+func downloadFile(version string, path string) error {
+	url := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl", version, runtime.GOOS, runtime.GOARCH)
 	log.Print(url)
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := http.DefaultClient.Do(req)
@@ -53,41 +52,49 @@ func downloadFile(kctlVersion string, path string) error {
 
 	bar := progressbar.DefaultBytes(
 		resp.ContentLength,
-		fmt.Sprintf("downloading kubectl %s", kctlVersion),
+		fmt.Sprintf("downloading kubectl %s", version),
 	)
 	io.Copy(io.MultiWriter(f, bar), resp.Body)
 
+	if err := verifyKctlDownload(version, path); err != nil {
+		return err
+	}
 	return nil
 }
 
-func validatePath(path string) (string, error) {
-	if path == "" {
-		path = "."
-	}
+func checkPath(version string, path string) error {
+
+	dirPath := filepath.Dir(path)
+
 	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			if err := os.MkdirAll(path, 0755); err != nil {
-				return "", errors.New("error creating destination directory: " + err.Error())
+		if os.IsNotExist(err) { // file does not exist
+			if err := os.MkdirAll(dirPath, 0755); err != nil { // try to create path
+				log.Fatalf("error creating destination directory: " + err.Error()) // crash and burn if you can't
 			}
-		} else {
-			return "", errors.New("error checking destination directory: " + err.Error())
+		}
+		return err
+	} else { // file exists...
+		if err := verifyKctlDownload(version, path); err != nil {
+			return nil //...and checksum match!
+		} else { // ...but checksum don't match :(
+			return err
 		}
 	}
-	return path, nil
 }
 
-func verifyKctlDownload(kctlVersion string, kctlFileLocation string) error {
-	checksumURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl.sha512", kctlVersion, runtime.GOOS, runtime.GOARCH)
+func verifyKctlDownload(version string, path string) error {
+	checksumURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl.sha512", version, runtime.GOOS, runtime.GOARCH)
 	log.Print(checksumURL)
 
 	resp, err := http.Get(checksumURL)
 	if err != nil {
-		log.Printf("Can't download sha512 checksums for version %s from %s.", kctlVersion, checksumURL)
+		log.Printf("Can't download sha512 checksums for version %s from %s.", version, checksumURL)
+		return err
 	}
 	bodyData, _ := ioutil.ReadAll(resp.Body)
 	checksumRef := strings.TrimSuffix(string(bodyData), "\n")
 
-	f, err := os.Open(kctlFileLocation)
+	f, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
