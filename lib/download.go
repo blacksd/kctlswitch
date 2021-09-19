@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -14,31 +13,30 @@ import (
 	"strings"
 
 	"github.com/schollz/progressbar/v3"
+	"go.uber.org/zap"
 )
 
-func DownloadKctl(version string, path string) error {
+func DownloadKctl(version string, path string, log *zap.SugaredLogger) error {
 
-	// TODO: check sha256
-	// TODO: check if file is already there
 	kctlFileLocation := fmt.Sprintf("%s/kubectl.%s", path, version)
 
-	if err := checkPath(version, kctlFileLocation); err != nil {
-		if err := downloadFile(version, kctlFileLocation); err != nil {
+	if err := checkPath(version, kctlFileLocation, log); err != nil {
+		if err := downloadFile(version, kctlFileLocation, log); err != nil {
 			log.Fatalf("Can't download kubectl version %s", version)
 		}
 	} else {
-		log.Printf("Found a binary for version %s with the right checksum, skipping download.", version)
+		log.Infof("Found a binary for version %s with the right checksum, skipping download.", version)
 	}
 	return nil
 }
 
-func downloadFile(version string, path string) error {
+func downloadFile(version string, path string, log *zap.SugaredLogger) error {
 	url := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl", version, runtime.GOOS, runtime.GOARCH)
-	log.Print(url)
+	log.Info(url)
 	req, _ := http.NewRequest("GET", url, nil)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Print("Can't build a download client")
+		log.Errorf("Can't build a download client")
 		return err
 	}
 
@@ -46,7 +44,7 @@ func downloadFile(version string, path string) error {
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatalf("Can't write destination file at %s", f.Name())
+		log.Fatalf("Can't write destination file at %s.", f.Name())
 	}
 	defer f.Close()
 
@@ -56,13 +54,13 @@ func downloadFile(version string, path string) error {
 	)
 	io.Copy(io.MultiWriter(f, bar), resp.Body)
 
-	if err := verifyKctlDownload(version, path); err != nil {
+	if err := verifyKctlDownload(version, path, log); err != nil {
 		return err
 	}
 	return nil
 }
 
-func checkPath(version string, path string) error {
+func checkPath(version string, path string, log *zap.SugaredLogger) error {
 
 	dirPath := filepath.Dir(path)
 
@@ -74,21 +72,21 @@ func checkPath(version string, path string) error {
 		}
 		return err
 	} else { // file exists...
-		if err := verifyKctlDownload(version, path); err != nil {
-			return nil //...and checksum match!
-		} else { // ...but checksum don't match :(
+		if err := verifyKctlDownload(version, path, log); err != nil {
+			log.Debug(err.Error()) // ...but checksum don't match :(
 			return err
 		}
+		return nil
 	}
 }
 
-func verifyKctlDownload(version string, path string) error {
+func verifyKctlDownload(version string, path string, log *zap.SugaredLogger) error {
 	checksumURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl.sha512", version, runtime.GOOS, runtime.GOARCH)
-	log.Print(checksumURL)
+	log.Info(checksumURL)
 
 	resp, err := http.Get(checksumURL)
 	if err != nil {
-		log.Printf("Can't download sha512 checksums for version %s from %s.", version, checksumURL)
+		log.Errorf("Can't download sha512 checksums for version %s from %s.", version, checksumURL)
 		return err
 	}
 	bodyData, _ := ioutil.ReadAll(resp.Body)
