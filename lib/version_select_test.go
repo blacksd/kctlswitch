@@ -6,22 +6,36 @@ import (
 	"testing"
 )
 
-const (
-	goodConstraint  string = ">= 1.18"
-	badConstraint   string = "vers0.2.3.4.5"
-	emptyConstraint string = ""
-)
+var validConstraints = []struct {
+	name       string
+	constraint string
+	want       []string
+}{
+	{"single constraint", "1.18", TODO},
+	{"range constraint", "1.17 - 1.18", TODO},
+}
 
-func TestVersionList(t *testing.T) {
-	t.Run("SingleValidConstraint", func(t *testing.T) {
-		sample, err := lib.KctlVersionList(goodConstraint, slog)
-		if err != nil {
-			t.Fatal("Couldn't obtain data from a valid constraint.")
-		}
-		if len(sample) == 0 {
-			t.Fatal("Got zero results for a valid constraint.")
-		}
-	})
+var invalidConstraints = []struct {
+	name       string
+	constraint string
+	err        error
+}{
+	{"bad constraint", "vers0.2.3.4.5", errors.Error()},
+	{"empty constraints", "", errors.Error()},
+}
+
+func TestVersionListValidConstraints(t *testing.T) {
+	for _, ct := range validConstraints {
+		t.Run(ct.name, func(t *testing.T) {
+			got, err := lib.KctlVersionList(ct.constraint, slog)
+			if err != nil {
+				t.Fatal("Couldn't obtain data.")
+			}
+			if len(got) == 0 {
+				t.Fatal("Got zero results.")
+			}
+		})
+	}
 
 	t.Run("InvalidConstraint", func(t *testing.T) {
 		_, err := lib.KctlVersionList(badConstraint, slog)
