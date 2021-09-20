@@ -2,9 +2,9 @@ package lib
 
 import (
 	"errors"
-	"log"
 
 	"github.com/Masterminds/semver/v3"
+	"go.uber.org/zap"
 
 	validation "github.com/go-ozzo/ozzo-validation/v4"
 
@@ -13,11 +13,11 @@ import (
 	"github.com/go-git/go-git/v5/storage/memory"
 )
 
-func KctlVersionsList(constraint string) ([]string, error) {
+func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error) {
 	var tags []string
 	c, err := semver.NewConstraint(constraint)
 	if err != nil {
-		log.Print("The constraint is not valid.")
+		log.Errorf("The constraint \"%s\" is not valid.", constraint)
 		return nil, err
 	}
 
@@ -27,7 +27,7 @@ func KctlVersionsList(constraint string) ([]string, error) {
 		URLs: []string{"https://github.com/kubernetes/kubernetes.git"},
 	})
 
-	log.Print("Fetching tags...")
+	log.Debug("Fetching tags")
 
 	// We can then use every Remote functions to retrieve wanted information
 	refs, err := rem.List(&git.ListOptions{})
@@ -38,18 +38,18 @@ func KctlVersionsList(constraint string) ([]string, error) {
 	// Filters the references list and only keeps tags
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
-			// _, err := semver.NewVersion(string(ref.Name().Short()))
-			if err := validation.Validate(ref.Name().Short(), validation.By(validateTag(*c))); err == nil {
-				tags = append(tags, ref.Name().Short())
+			tag := ref.Name().Short()
+			if err := validation.Validate(tag, validation.By(validateTag(*c))); err == nil {
+				tags = append(tags, tag)
 			}
 		}
 	}
 
 	if len(tags) == 0 {
-		log.Println("No tags!")
+		log.Error("No tags are satisfying the constraint!")
 	}
 
-	log.Printf("Tags found: %v", tags)
+	log.Debugf("Tags found: %v", tags)
 
 	return tags, nil
 }
@@ -67,6 +67,3 @@ func validateTag(constraint semver.Constraints) validation.RuleFunc {
 		return nil
 	}
 }
-
-// TODO: select
-// TODO: download

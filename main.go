@@ -11,7 +11,7 @@ var slog = logger.Sugar()
 
 func main() {
 	defer logger.Sync() // flushes buffer, if any
-	// lib.KctlVersionsList("<= 1.7")
+	lib.KctlVersionList("<= 1.7", slog)
 	slog.Info("test")
 	lib.DownloadKctl("v1.12.3", "./", slog)
 }
