@@ -4,6 +4,7 @@ import (
 	"kctlswitch/lib"
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,14 +18,15 @@ var validConstraints = []struct {
 	{"constraint that yields zero results", "1.10.143", []string{}},
 }
 
-/* var invalidConstraints = []struct {
+var invalidConstraints = []struct {
 	name       string
 	constraint string
-	err        error
+	want       error
 }{
-	{"invalid constraint", "vers0.2.3.4.5", errors.Error()},
-	{"empty constraint", "", errors.Error()},
-} */
+	{"invalid constraint", "vers1.2.3.4.5-1", semver.ErrInvalidCharacters},
+	{"syntax valid semantic invalid constraint", "v0.1.1", semver.ErrSegmentStartsZero},
+	{"empty constraint", "", semver.ErrEmptyString},
+}
 
 func TestVersionListValidConstraints(t *testing.T) {
 	for _, ct := range validConstraints {
@@ -36,16 +38,12 @@ func TestVersionListValidConstraints(t *testing.T) {
 	}
 }
 
-/* t.Run("InvalidConstraint", func(t *testing.T) {
-	_, err := lib.KctlVersionList(badConstraint, slog)
-	if !strings.Contains(err.Error(), "improper constraint") {
-		t.Fatal("An invalid constraint did not failed.")
+func TestVersionListInvalidConstraints(t *testing.T) {
+	for _, ict := range invalidConstraints {
+		t.Run(ict.name, func(t *testing.T) {
+			v, err := lib.KctlVersionList(ict.constraint, slog)
+			assert.Empty(t, v)
+			assert.Error(t, ict.want, err)
+		})
 	}
-})
-
-t.Run("EmptyConstraint", func(t *testing.T) {
-	_, err := lib.KctlVersionList(emptyConstraint, slog)
-	if !strings.Contains(err.Error(), "improper constraint") {
-		t.Fatal("The empty constraint was not managed.")
-	}
-}) */
+}

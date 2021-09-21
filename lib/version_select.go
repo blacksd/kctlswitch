@@ -59,7 +59,7 @@ func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error
 func validateTag(tag string, constraint semver.Constraints) error {
 	v, err := semver.NewVersion(tag)
 	if err != nil {
-		return semver.ErrInvalidCharacters
+		return err
 	}
 	if !constraint.Check(v) {
 		return semver.ErrInvalidSemVer
