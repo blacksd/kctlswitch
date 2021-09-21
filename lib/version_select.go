@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"errors"
 	"sort"
 
 	"github.com/Masterminds/semver/v3"
@@ -9,6 +10,10 @@ import (
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/storage/memory"
+)
+
+var (
+	ErrVersionNotSelected = errors.New("Version is not in the constraint range")
 )
 
 func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error) {
@@ -62,7 +67,7 @@ func validateTag(tag string, constraint semver.Constraints) error {
 		return err
 	}
 	if !constraint.Check(v) {
-		return semver.ErrInvalidSemVer
+		return ErrVersionNotSelected
 	}
 	return nil
 }
