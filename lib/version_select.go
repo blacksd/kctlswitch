@@ -1,12 +1,10 @@
 package lib
 
 import (
-	"errors"
+	"sort"
 
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
-
-	validation "github.com/go-ozzo/ozzo-validation/v4"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -14,20 +12,19 @@ import (
 )
 
 func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error) {
-	var tags []string
+
 	c, err := semver.NewConstraint(constraint)
 	if err != nil {
 		log.Errorf("The constraint \"%s\" is not valid.", constraint)
 		return nil, err
 	}
 
+	log.Debugf("Found a valid constraint \"%s\"; fetching tags", constraint)
 	// Create the remote with repository URL
 	rem := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{"https://github.com/kubernetes/kubernetes.git"},
 	})
-
-	log.Debug("Fetching tags")
 
 	// We can then use every Remote functions to retrieve wanted information
 	refs, err := rem.List(&git.ListOptions{})
@@ -35,35 +32,37 @@ func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error
 		log.Fatal(err)
 	}
 
+	var versions []*semver.Version
 	// Filters the references list and only keeps tags
 	for _, ref := range refs {
 		if ref.Name().IsTag() {
-			tag := ref.Name().Short()
-			if err := validation.Validate(tag, validation.By(validateTag(*c))); err == nil {
-				tags = append(tags, tag)
+			t := ref.Name().Short()
+			if err := validateTag(t, *c); err == nil {
+				v, _ := semver.NewVersion(t)
+				versions = append(versions, v)
 			}
 		}
 	}
-
-	if len(tags) == 0 {
-		log.Error("No tags are satisfying the constraint!")
+	sort.Sort(semver.Collection(versions))
+	if len(versions) == 0 {
+		log.Error("No version is satisfying the constraint!")
 	}
 
-	log.Debugf("Tags found: %v", tags)
-
+	log.Infof("Tags found: %v", versions)
+	tags := []string{}
+	for _, v := range versions {
+		tags = append(tags, v.String())
+	}
 	return tags, nil
 }
 
-func validateTag(constraint semver.Constraints) validation.RuleFunc {
-	return func(value interface{}) error {
-		s, _ := value.(string)
-		ver, err := semver.NewVersion(s)
-		if err != nil {
-			return errors.New("The tag '" + s + "' is not semver compliant.")
-		}
-		if !constraint.Check(ver) {
-			return errors.New("The tag '" + s + "' is not within the constraints.")
-		}
-		return nil
+func validateTag(tag string, constraint semver.Constraints) error {
+	v, err := semver.NewVersion(tag)
+	if err != nil {
+		return semver.ErrInvalidCharacters
 	}
+	if !constraint.Check(v) {
+		return semver.ErrInvalidSemVer
+	}
+	return nil
 }
