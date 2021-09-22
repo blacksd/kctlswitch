@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	ErrVersionNotSelected = errors.New("Version is not in the constraint range")
+	ErrVersionNotSelected = errors.New("version is not in the constraint range")
 )
 
 func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error) {
@@ -25,7 +25,9 @@ func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error
 	}
 
 	log.Debugf("Found a valid constraint \"%s\"; fetching tags", constraint)
-	// Create the remote with repository URL
+
+	// TODO: use a local cache for git
+	// TODO: manage cache expiration
 	rem := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{
 		Name: "origin",
 		URLs: []string{"https://github.com/kubernetes/kubernetes.git"},
