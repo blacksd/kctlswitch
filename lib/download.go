@@ -22,7 +22,8 @@ func DownloadKctl(version string, path string, log *zap.SugaredLogger) error {
 
 	if err := checkPath(version, kctlFileLocation, log); err != nil {
 		if err := downloadFile(version, kctlFileLocation, log); err != nil {
-			log.Fatalf("Can't download kubectl version %s", version)
+			log.Errorf("Can't download kubectl version %s", version)
+			return err
 		}
 	} else {
 		log.Infof("Found a binary for version %s with the right checksum, skipping download.", version)
