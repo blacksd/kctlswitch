@@ -1,8 +1,10 @@
 package lib
 
 import (
+	"context"
 	"errors"
 	"sort"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"go.uber.org/zap"
@@ -87,8 +89,9 @@ func fetchTagsGit(constraint *semver.Constraints) ([]*semver.Version, error) {
 		URLs: []string{"https://github.com/kubernetes/kubernetes.git"},
 	})
 
-	// We can then use every Remote functions to retrieve wanted information
-	refs, err := rem.List(&git.ListOptions{})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*60))
+	defer cancel()
+	refs, err := rem.ListContext(ctx, &git.ListOptions{})
 	if err != nil {
 		return nil, err
 	}

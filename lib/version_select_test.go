@@ -14,7 +14,9 @@ var validConstraints = []struct {
 	want       []string
 }{
 	{"single constraint", "1.18.4", []string{"1.18.4"}},
+	{"single constraint with prefix", "v1.18.4", []string{"1.18.4"}},
 	{"range constraint", "1.17.5 - 1.17.9", []string{"1.17.5", "1.17.6", "1.17.7", "1.17.8", "1.17.9"}},
+	{"range constraint mixed prefix", "1.17.5 - v1.17.9", []string{"1.17.5", "1.17.6", "1.17.7", "1.17.8", "1.17.9"}},
 	{"constraint that yields zero results", "1.10.143", []string{}},
 }
 
