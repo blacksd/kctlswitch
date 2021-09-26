@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"kctlswitch/lib"
+	"os"
 
 	"github.com/manifoldco/promptui"
 	"go.uber.org/zap"
@@ -12,15 +13,24 @@ import (
 var logger, _ = zap.NewProduction()
 var slog = logger.Sugar()
 
+// TODO: implement proper input request
 const (
-	constraint string = "1.17.5 - 1.17.9"
+	constraint string = "1.17.8 - 1.17.20"
 )
+
+var srcPath string
+
+func init() {
+	homeDir, _ := os.UserHomeDir()
+	srcPath = fmt.Sprintf("%s/.kctlswitch/bin/", homeDir)
+}
 
 func main() {
 	defer logger.Sync() // flushes buffer, if any
 
 	slog.Infof("Starting run with constraint %s", constraint)
 
+	//lib.AltFetchTags(slog)
 	kctlVersions, err := lib.KctlVersionList(constraint, slog)
 	if err != nil {
 		slog.Error(err)
@@ -35,5 +45,6 @@ func main() {
 		slog.Error(err)
 	}
 
-	lib.DownloadKctl(fmt.Sprintf("v%s", result), "./", slog)
+	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, slog)
+	lib.InstallKctlVersion("1.17.9", srcPath, "/usr/local/bin/", slog)
 }

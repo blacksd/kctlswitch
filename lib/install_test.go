@@ -3,10 +3,16 @@ package lib_test
 import (
 	"errors"
 	"fmt"
+	"io/fs"
+	"kctlswitch/lib"
 	"os"
+	"syscall"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-const ValidKubectlVersion string = "v1.12.3"
+const ValidKubectlVersion string = "1.12.3"
 
 var validSrcPath string
 
@@ -17,10 +23,13 @@ var InstallTests = []struct {
 	dstPath string
 	want    error
 }{
-	{"valid dstPath", ValidKubectlVersion, validSrcPath, "/usr/local/bin/", nil},
-	{"empty dstPath", ValidKubectlVersion, validSrcPath, "./", errors.New("destination path can't be empty")},
-	{"non-existing dstPath", ValidKubectlVersion, validSrcPath, "./", errors.New("destination path does not exist")},
-	{"inaccessible dstpath", ValidKubectlVersion, validSrcPath, "./", errors.New("we can't write to destination path")},
+	{"valid dstPath without binaries", ValidKubectlVersion, validSrcPath, "/usr/local/bin/", nil},
+	{"valid dstPath with symlink", ValidKubectlVersion, validSrcPath, "./", nil},
+	{"valid dstPath with non-symlink binary", ValidKubectlVersion, validSrcPath, "/usr/bin/", errors.New("won't override an existing binary")},
+	{"empty dstPath", ValidKubectlVersion, validSrcPath, "", &fs.PathError{Op: "stat", Path: "", Err: syscall.Errno(2)}},
+	{"dstPath is not a dir", ValidKubectlVersion, validSrcPath, "/bin/bash", errors.New("destination path is not a directory")},
+	{"non-existing dstPath", ValidKubectlVersion, validSrcPath, "/probablythisdoesnot/exists/", &fs.PathError{Op: "stat", Path: "/probablythisdoesnot/exists/", Err: syscall.Errno(2)}},
+	{"inaccessible dstpath", ValidKubectlVersion, validSrcPath, "/bin/", errors.New("we can't write to destination path")},
 }
 
 func init() {
@@ -28,13 +37,24 @@ func init() {
 	if err != nil {
 		slog.Fatal("Can't get the current user home directory. Stopping here.")
 	}
-	validSrcPath = fmt.Sprintf("%s/.kctlswitch/bin/kubectl-%s", userHomeDir, ValidKubectlVersion)
+	validSrcPath = fmt.Sprintf("%s/.kctlswitch/bin/kubectl-v%s", userHomeDir, ValidKubectlVersion)
+	//TODO: implement test PASS dependency on KctlDownload
+	//TODO: initialize tests
+	/*
+		- call KctlDownload on ValidKubectlVersion to validSrcPath
+		- build local testdata
+	*/
 }
 
-/* func TestInstall (t *testing.T) {
-	for _, install := range validInstallTests {
-
-		srcPath string =
-
+func TestInstall(t *testing.T) {
+	for _, it := range InstallTests {
+		t.Run(it.name, func(t *testing.T) {
+			err := lib.InstallKctlVersion(it.version, it.srcPath, it.dstPath, slog)
+			assert.Equal(t, it.want, err)
+			if it.want == nil {
+				// true
+				slog.Info("TODO: check symlink")
+			}
+		})
 	}
-} */
+}

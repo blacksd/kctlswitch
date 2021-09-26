@@ -28,11 +28,9 @@ func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error
 
 	log.Debugf("Found a valid constraint \"%s\"; fetching tags", constraint)
 
-	// TODO: use a local cache for git
-	// TODO: manage cache expiration
-
-	// asd, _ := getTemporaryGitDir(log)
-	// log.Info(asd)
+	// TODO: use a local cache for results;
+	// - manage cache expiration
+	// - load/save results
 
 	versions, err := fetchTagsGit(c)
 	if err != nil {
@@ -111,32 +109,7 @@ func fetchTagsGit(constraint *semver.Constraints) ([]*semver.Version, error) {
 	return versions, nil
 }
 
-/*
-func AltFetchTags(log *zap.SugaredLogger) ([]string, error) {
-	asd, _ := getTemporaryGitDir(log)
-	// log.Info(asd)
-
-	// b := billy.Basic()
-	b := osfs.New(asd)
-	dotGit := dotgit.New(b)
-	s := filesystem.NewStorage(dotGit.Fs(), cache.NewObjectLRU(cache.FileSize(123456789)))
-
-	repo, err := git.Init(s, nil)
-	if err != nil {
-		log.Error(err)
-	}
-	rem, _ := repo.CreateRemote(&config.RemoteConfig{
-		Name: "origin",
-		URLs: []string{"https://github.com/kubernetes/kubernetes.git"},
-	})
-
-	if err := rem.Fetch(&git.FetchOptions{}); err != nil {
-		log.Info("Done fetching")
-	}
-	return []string{}, nil
-} */
-
-func GHFetchTags(log *zap.SugaredLogger) ([]string, error) {
+func fetchTagsGitHub(log *zap.SugaredLogger) ([]string, error) {
 
 	return []string{}, nil
 }

@@ -43,9 +43,10 @@ func downloadFile(version string, path string, log *zap.SugaredLogger) error {
 
 	defer resp.Body.Close()
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
-		log.Fatalf("Can't write destination file at %s.", f.Name())
+		log.Errorf("Can't write destination file at %s.", f.Name())
+		return err
 	}
 	defer f.Close()
 
