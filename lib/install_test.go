@@ -29,7 +29,7 @@ var InstallTests = []struct {
 	{"empty dstPath", ValidKubectlVersion, validSrcPath, "", &fs.PathError{Op: "stat", Path: "", Err: syscall.Errno(2)}},
 	{"dstPath is not a dir", ValidKubectlVersion, validSrcPath, "/bin/bash", errors.New("destination path is not a directory")},
 	{"non-existing dstPath", ValidKubectlVersion, validSrcPath, "/probablythisdoesnot/exists/", &fs.PathError{Op: "stat", Path: "/probablythisdoesnot/exists/", Err: syscall.Errno(2)}},
-	{"inaccessible dstpath", ValidKubectlVersion, validSrcPath, "/bin/", errors.New("we can't write to destination path")},
+	{"inaccessible dstpath", ValidKubectlVersion, validSrcPath, "/bin/", &os.LinkError{Op: "symlink", Old: fmt.Sprintf("%s.v%s", lib.DefaultKctlBinaryName, ValidKubectlVersion), New: "/bin/kubectl", Err: syscall.Errno(1)}},
 }
 
 func init() {
@@ -38,6 +38,7 @@ func init() {
 		slog.Fatal("Can't get the current user home directory. Stopping here.")
 	}
 	validSrcPath = fmt.Sprintf("%s/.kctlswitch/bin/kubectl-v%s", userHomeDir, ValidKubectlVersion)
+	lib.DownloadKctl(ValidKubectlVersion, validSrcPath, slog)
 	//TODO: implement test PASS dependency on KctlDownload
 	//TODO: initialize tests
 	/*
@@ -52,8 +53,10 @@ func TestInstall(t *testing.T) {
 			err := lib.InstallKctlVersion(it.version, it.srcPath, it.dstPath, slog)
 			assert.Equal(t, it.want, err)
 			if it.want == nil {
-				// true
-				slog.Info("TODO: check symlink")
+				l, err := os.Readlink(it.srcPath)
+				if assert.Nil(t, err) {
+					assert.Equal(t, l, it.dstPath)
+				}
 			}
 		})
 	}
