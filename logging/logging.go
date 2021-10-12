@@ -10,26 +10,26 @@ type loggerKeyType int
 
 const loggerKey loggerKeyType = iota
 
-var logger *zap.Logger
-var sugaredLogger *zap.SugaredLogger
+var rootLogger *zap.Logger
+var rootSugaredLogger *zap.SugaredLogger
 
 func init() {
-	logger, _ = zap.NewProduction()
-	sugaredLogger = logger.Sugar()
+	rootLogger, _ = zap.NewProduction()
+	rootSugaredLogger = rootLogger.Sugar()
 }
 
 func NewContext(ctx context.Context, fields ...zap.Field) context.Context {
-	return context.WithValue(ctx, loggerKey, WithContext(ctx).With(fields...))
+	return context.WithValue(ctx, loggerKey, WithContext(ctx).With(fields))
 }
 
 func WithContext(ctx context.Context) *zap.SugaredLogger {
 	if ctx == nil {
-		return sugaredLogger
+		return rootSugaredLogger
 	}
 	if ctxLogger, ok := ctx.Value(loggerKey).(zap.SugaredLogger); ok {
 		return &ctxLogger
 	} else {
-		return sugaredLogger
+		return rootSugaredLogger
 	}
 }
 
@@ -41,7 +41,6 @@ From a called func:
 logging.WithContext(ctx).Info("This is a cane log!",zap.String("hey", variable))
 
 From the caller building the context:
-
 
 var myLocalContext = context.Background()
 var myFunctionStuff string = "name"
