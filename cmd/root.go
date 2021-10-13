@@ -1,13 +1,15 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
+
+	"kctlswitch/logging"
 
 	"github.com/spf13/cobra"
 
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 const (
@@ -15,8 +17,7 @@ const (
 )
 
 var cfgFile string
-var logger, _ = zap.NewProduction()
-var slog = logger.Sugar()
+var cmdCtx = logging.NewContext(context.Background(), "context", "main")
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -37,10 +38,13 @@ to quickly create a Cobra application.`,
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
-	cobra.CheckErr(rootCmd.Execute())
+	cobra.CheckErr(rootCmd.ExecuteContext(cmdCtx))
 }
 
 func init() {
+	myLoggerZero := logging.WithContext(cmdCtx)
+	myLoggerZero.Info("From init")
+
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
@@ -65,10 +69,9 @@ func initConfig() {
 		home, err := os.UserHomeDir()
 		cobra.CheckErr(err)
 
-		// Search config in home directory with name ".kctlswitch" (without extension).
-		viper.AddConfigPath(home)
+		viper.AddConfigPath(fmt.Sprintf("%s/.kctlswitch", home))
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".kctlswitch")
+		viper.SetConfigName("config.yaml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

@@ -17,10 +17,8 @@ package cmd
 
 import (
 	"fmt"
-	"kctlswitch/lib"
+	"kctlswitch/logging"
 	"os"
-
-	"github.com/manifoldco/promptui"
 
 	"github.com/spf13/cobra"
 )
@@ -36,13 +34,16 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	Run: setKubectlVersion,
+	// Run: setKubectlVersion,
 }
 
 var Constraint string
 var srcPath string
 
 func init() {
+	myLoggerOne := logging.WithContext(setCmd.Context())
+	myLoggerOne.Info("From set init")
+
 	homeDir, _ := os.UserHomeDir()
 	srcPath = fmt.Sprintf("%s/.kctlswitch/bin/", homeDir)
 	rootCmd.AddCommand(setCmd)
@@ -61,6 +62,7 @@ func init() {
 	setCmd.MarkFlagRequired("constraint")
 }
 
+/*
 func setKubectlVersion(cmd *cobra.Command, args []string) {
 	kctlVersions, err := lib.KctlVersionList(Constraint, slog)
 	if err != nil {
@@ -83,3 +85,4 @@ func setKubectlVersion(cmd *cobra.Command, args []string) {
 	// TODO
 	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), slog)
 }
+*/
