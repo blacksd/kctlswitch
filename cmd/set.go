@@ -17,9 +17,11 @@ package cmd
 
 import (
 	"fmt"
+	"kctlswitch/lib"
 	"kctlswitch/logging"
 	"os"
 
+	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 )
 
@@ -34,19 +36,18 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	// Run: setKubectlVersion,
+	Run: setKubectlVersion,
 }
 
-var Constraint string
+var constraint string
 var srcPath string
+var useLatestVersion bool
 
 func init() {
-	myLoggerOne := logging.WithContext(setCmd.Context())
-	myLoggerOne.Info("From set init")
+	rootCmd.AddCommand(setCmd)
 
 	homeDir, _ := os.UserHomeDir()
 	srcPath = fmt.Sprintf("%s/.kctlswitch/bin/", homeDir)
-	rootCmd.AddCommand(setCmd)
 
 	// Here you will define your flags and configuration settings.
 
@@ -56,33 +57,36 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	setCmd.Flags().StringVarP(&Constraint, "constraint", "c", "", "The kubectl semver constraint to use.")
-	setCmd.Flags().BoolP("use-latest", "l", false, "Use the latest version in constraint, if results are more than one.")
+	setCmd.Flags().StringVarP(&constraint, "constraint", "c", "", "The kubectl semver constraint to use.")
+	setCmd.Flags().BoolVarP(&useLatestVersion, "use-latest", "l", false, "Use the latest version in constraint, if results are more than one.")
 
 	setCmd.MarkFlagRequired("constraint")
 }
 
-/*
 func setKubectlVersion(cmd *cobra.Command, args []string) {
-	kctlVersions, err := lib.KctlVersionList(Constraint, slog)
+
+	myLoggerSet := logging.WithContext(cmd.Context())
+	myLoggerSet.Info("set subcommand invoked")
+
+	kctlVersions, err := lib.KctlVersionList(constraint, myLoggerSet)
 	if err != nil {
-		slog.Error(err)
+		myLoggerSet.Error(err)
 	}
 	var result string
-	if len(kctlVersions) > 1 {
+	if (len(kctlVersions) == 1) || useLatestVersion {
+		result = kctlVersions[len(kctlVersions)-1]
+	} else {
 		prompt := promptui.Select{
 			Label: "Select kubectl version",
 			Items: kctlVersions,
 		}
 		_, result, err = prompt.Run()
 		if err != nil {
-			slog.Error(err)
+			myLoggerSet.Fatal(err)
 		}
-	} else {
-		result = kctlVersions[0]
 	}
-	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, slog)
+
+	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, myLoggerSet)
 	// TODO
-	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), slog)
+	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), myLoggerSet)
 }
-*/

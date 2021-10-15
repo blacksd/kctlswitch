@@ -1,0 +1,34 @@
+
+KCTLSWITCH_PATH=path
+KCTLSWITCH_LATEST=true
+KCTLSWITCH_SET_VERSION="1.15"
+
+---
+
+kctlswitch
+--path=path
+--latest (or menu if the list doesn't yield a single result)
+--from-current-context (or provide semver version list, or use the whole list)
+
+-v --version
+-h --help
+
+---
+
+kctlswitch version
+-> version printed out
+
+kctlswitch install --path=path
+-> menu (all versions)
+
+kctlswitch install --path=path "1.15"
+-> menu (only 1.15 version)
+
+kctlswitch set --path=path --latest "1.15"
+-> install the latest version
+
+kctlswitch set --path=path "1.15.3"
+-> install the 1.15.3 version
+
+kctlswitch get --path=path
+-> show the synlink status, the version and if the binary is passing the SHA validation

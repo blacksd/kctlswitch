@@ -4,13 +4,7 @@ import (
 	"fmt"
 	"kctlswitch/cmd"
 	"os"
-
-	"go.uber.org/zap"
 )
-
-// FEAT: improve logging with optional logfile and a better console experience
-var logger, _ = zap.NewProduction()
-var slog = logger.Sugar()
 
 // TODO: implement proper input request
 
@@ -22,8 +16,7 @@ func init() {
 }
 
 func main() {
-	defer logger.Sync() // flushes buffer, if any
-	slog.Debug("Starting run")
+	// defer logger.Sync() // flushes buffer, if any
 	cmd.Execute()
 
 	//lib.AltFetchTags(slog)
