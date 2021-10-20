@@ -38,7 +38,7 @@ func KctlVersionList(constraint string, log *zap.SugaredLogger) ([]string, error
 	}
 
 	if len(versions) == 0 {
-		log.Warn("No version is satisfying the constraint!")
+		return nil, errors.New("no version is satisfying the constraint")
 	}
 
 	log.Infof("Tags found: %v", versions)

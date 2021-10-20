@@ -16,19 +16,22 @@ import (
 	"go.uber.org/zap"
 )
 
-func DownloadKctl(version string, path string, log *zap.SugaredLogger) error {
+var skipVerify bool = false
 
+func DownloadKctl(version string, path string, verify bool, log *zap.SugaredLogger) (bool, error) {
+	skipVerify = verify
 	kctlFileLocation := fmt.Sprintf("%s/kubectl.%s", path, version)
 
 	if err := checkPath(version, kctlFileLocation, log); err != nil {
 		if err := downloadFile(version, kctlFileLocation, log); err != nil {
 			log.Errorf("Can't download kubectl version %s", version)
-			return err
+			return false, err
 		}
 	} else {
-		log.Infof("Found a binary for version %s with the right checksum, skipping download.", version)
+		log.Infof("Found a binary for version %s with a valid checksum, skipping download.", version)
+		return false, nil
 	}
-	return nil
+	return true, nil
 }
 
 func downloadFile(version string, path string, log *zap.SugaredLogger) error {
@@ -83,6 +86,10 @@ func checkPath(version string, path string, log *zap.SugaredLogger) error {
 }
 
 func verifyKctlDownload(version string, path string, log *zap.SugaredLogger) error {
+	if skipVerify {
+		log.Info("skipping file verification")
+		return nil
+	}
 	checksumURL := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl.sha512", version, runtime.GOOS, runtime.GOARCH)
 	log.Info(checksumURL)
 

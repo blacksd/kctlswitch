@@ -14,6 +14,10 @@ const (
 	defaultKctlBinaryVersionsDir string = ".kube/bin/"
 )
 
+var (
+	ErrNotADir error = errors.New("path is not a directory")
+)
+
 func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, log *zap.SugaredLogger) error {
 
 	if err := validateDstPath(dstPath); err != nil {
@@ -24,8 +28,10 @@ func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, log 
 	srcBinary := filepath.Join(srcPath, fmt.Sprintf("%s.v%s", defaultKctlBinaryName, kctlVersion))
 	dstBinary := filepath.Join(dstPath, defaultKctlBinaryName)
 
-	if _, err := os.Lstat(dstBinary); err == nil {
-		log.Debug("found a symlink pointing to XX")
+	// TODO: this check should happen before, in the validateDstPath
+	// TODO: set an explicit --force flag to overwrite destination, or unset link instead
+	if currentDestination, err := os.Lstat(dstBinary); err == nil {
+		log.Debug("found a symlink pointing to %s", currentDestination.Name())
 		if err := os.Remove(dstBinary); err != nil {
 			log.Error("failed to unlink the existing link")
 			return err
@@ -35,21 +41,22 @@ func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, log 
 	if err := os.Symlink(srcBinary, dstBinary); err != nil {
 		return err
 	}
-	log.Info("Symlink successfully set")
+	log.Info("symlink successfully set")
 	return nil
 }
 
 func validateDstPath(path string) error {
-	// TODO: check the path is valid and we can write there
+	// check the path is valid (name and it's a directory)
 	pathInfo, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
-
 	if !pathInfo.IsDir() {
-		// TODO: refactor this error to be a var
-		return errors.New("destination path is not a directory")
+		return ErrNotADir
 	}
+
+	// check we can write there
+	// check there's no other non-symlink file
 
 	// f, err := os.OpenFile(filepath.Join(path, defaultKctlBinaryName), os.O_CREATE, 0644)
 	// if err != nil {

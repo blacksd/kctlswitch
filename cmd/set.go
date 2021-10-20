@@ -30,18 +30,16 @@ var setCmd = &cobra.Command{
 	Use:   "set",
 	Short: "Set a different kubectl version.",
 	Args:  cobra.OnlyValidArgs,
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Long: `Download, verify and set a kubectl version.
+	
+	You can from the constraint`,
 	Run: setKubectlVersion,
 }
 
 var constraint string
 var srcPath string
 var useLatestVersion bool
+var noVerify bool
 
 func init() {
 	rootCmd.AddCommand(setCmd)
@@ -59,6 +57,7 @@ func init() {
 	// is called directly, e.g.:
 	setCmd.Flags().StringVarP(&constraint, "constraint", "c", "", "The kubectl semver constraint to use.")
 	setCmd.Flags().BoolVarP(&useLatestVersion, "use-latest", "l", false, "Use the latest version in constraint, if results are more than one.")
+	setCmd.Flags().BoolVarP(&noVerify, "no-verify", "n", false, "Skip checking the version's hash.")
 
 	setCmd.MarkFlagRequired("constraint")
 }
@@ -70,7 +69,7 @@ func setKubectlVersion(cmd *cobra.Command, args []string) {
 
 	kctlVersions, err := lib.KctlVersionList(constraint, myLoggerSet)
 	if err != nil {
-		myLoggerSet.Error(err)
+		myLoggerSet.Fatal(err)
 	}
 	var result string
 	if (len(kctlVersions) == 1) || useLatestVersion {
@@ -86,7 +85,6 @@ func setKubectlVersion(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, myLoggerSet)
-	// TODO
+	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, noVerify, myLoggerSet)
 	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), myLoggerSet)
 }
