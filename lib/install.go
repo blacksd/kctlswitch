@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 
 	"go.uber.org/zap"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -15,12 +17,12 @@ const (
 )
 
 var (
-	ErrNotADir error = errors.New("path is not a directory")
+	ErrNotADir               error = errors.New("path is not a directory")
+	ErrNotSymlinkFilePresent error = fmt.Errorf("there's already a %s in path, and it's not a symlink; please set the --force flag to overwrite it", defaultKctlBinaryName)
 )
 
-func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, log *zap.SugaredLogger) error {
-
-	if err := validateDstPath(dstPath); err != nil {
+func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, overwrite bool, log *zap.SugaredLogger) error {
+	if err := validateDstPath(dstPath, overwrite); err != nil {
 		log.Error(err)
 		return err
 	}
@@ -28,8 +30,6 @@ func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, log 
 	srcBinary := filepath.Join(srcPath, fmt.Sprintf("%s.v%s", defaultKctlBinaryName, kctlVersion))
 	dstBinary := filepath.Join(dstPath, defaultKctlBinaryName)
 
-	// TODO: this check should happen before, in the validateDstPath
-	// TODO: set an explicit --force flag to overwrite destination, or unset link instead
 	if currentDestination, err := os.Lstat(dstBinary); err == nil {
 		log.Debug("found a symlink pointing to %s", currentDestination.Name())
 		if err := os.Remove(dstBinary); err != nil {
@@ -45,7 +45,7 @@ func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, log 
 	return nil
 }
 
-func validateDstPath(path string) error {
+func validateDstPath(path string, overwrite bool) error {
 	// check the path is valid (name and it's a directory)
 	pathInfo, err := os.Stat(path)
 	if err != nil {
@@ -55,18 +55,21 @@ func validateDstPath(path string) error {
 		return ErrNotADir
 	}
 
-	// check we can write there
-	// check there's no other non-symlink file
+	// path is not writable
+	if err := unix.Access(path, unix.W_OK); err != nil {
+		return err
+	}
 
-	// f, err := os.OpenFile(filepath.Join(path, defaultKctlBinaryName), os.O_CREATE, 0644)
-	// if err != nil {
-	// 	return err
-	// 	//os.IsPermission(err)
-	// }
-	// f.Close()
-
-	// TODO: test for O_CREATE|O_WRITE perms
-	// TODO: check if there's already a kubectl, and if it is a symlink
+	defaultBinary := filepath.Join(path, defaultKctlBinaryName)
+	if binInfo, err := os.Stat(defaultBinary); err == nil {
+		if (binInfo.Mode()&os.ModeSymlink != os.ModeSymlink) && !overwrite {
+			return ErrNotSymlinkFilePresent
+		}
+	} else {
+		if err.(*os.PathError).Err.(syscall.Errno) != syscall.ENOENT {
+			return err
+		}
+	}
 
 	return nil
 }

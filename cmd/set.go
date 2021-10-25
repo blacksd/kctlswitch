@@ -40,6 +40,7 @@ var constraint string
 var srcPath string
 var useLatestVersion bool
 var noVerify bool
+var forceOverwrite bool
 
 func init() {
 	rootCmd.AddCommand(setCmd)
@@ -58,6 +59,7 @@ func init() {
 	setCmd.Flags().StringVarP(&constraint, "constraint", "c", "", "The kubectl semver constraint to use.")
 	setCmd.Flags().BoolVarP(&useLatestVersion, "use-latest", "l", false, "Use the latest version in constraint, if results are more than one.")
 	setCmd.Flags().BoolVarP(&noVerify, "no-verify", "n", false, "Skip checking the version's hash.")
+	setCmd.Flags().BoolVarP(&forceOverwrite, "force", "f", false, "Overwrite any non-symlink 'kubectl' existing in the destination.")
 
 	setCmd.MarkFlagRequired("constraint")
 }
@@ -86,5 +88,5 @@ func setKubectlVersion(cmd *cobra.Command, args []string) {
 	}
 
 	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, noVerify, myLoggerSet)
-	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), myLoggerSet)
+	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), forceOverwrite, myLoggerSet)
 }
