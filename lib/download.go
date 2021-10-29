@@ -13,17 +13,18 @@ import (
 	"strings"
 
 	"github.com/schollz/progressbar/v3"
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 )
 
 var skipVerify bool = false
 
-func DownloadKctl(version string, path string, verify bool, log *zap.SugaredLogger) (bool, error) {
+func DownloadKctl(version string, path string, verify bool, AFS afero.Fs, log *zap.SugaredLogger) (bool, error) {
 	skipVerify = verify
 	kctlFileLocation := fmt.Sprintf("%s/kubectl.%s", path, version)
 
-	if err := checkPath(version, kctlFileLocation, log); err != nil {
-		if err := downloadFile(version, kctlFileLocation, log); err != nil {
+	if err := checkPath(version, kctlFileLocation, AFS, log); err != nil {
+		if err := downloadFile(version, kctlFileLocation, AFS, log); err != nil {
 			log.Errorf("Can't download kubectl version %s", version)
 			return false, err
 		}
@@ -34,7 +35,7 @@ func DownloadKctl(version string, path string, verify bool, log *zap.SugaredLogg
 	return true, nil
 }
 
-func downloadFile(version string, path string, log *zap.SugaredLogger) error {
+func downloadFile(version string, path string, AFS afero.Fs, log *zap.SugaredLogger) error {
 	url := fmt.Sprintf("https://storage.googleapis.com/kubernetes-release/release/%s/bin/%s/%s/kubectl", version, runtime.GOOS, runtime.GOARCH)
 	log.Info(url)
 	req, _ := http.NewRequest("GET", url, nil)
@@ -46,7 +47,7 @@ func downloadFile(version string, path string, log *zap.SugaredLogger) error {
 
 	defer resp.Body.Close()
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0755)
+	f, err := AFS.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
 		log.Errorf("Can't write destination file at %s.", f.Name())
 		return err
@@ -59,25 +60,26 @@ func downloadFile(version string, path string, log *zap.SugaredLogger) error {
 	)
 	io.Copy(io.MultiWriter(f, bar), resp.Body)
 
-	if err := verifyKctlDownload(version, path, log); err != nil {
+	if err := verifyKctlDownload(version, path, AFS, log); err != nil {
 		return err
 	}
 	return nil
 }
 
-func checkPath(version string, path string, log *zap.SugaredLogger) error {
+func checkPath(version string, path string, AFS afero.Fs, log *zap.SugaredLogger) error {
 
 	dirPath := filepath.Dir(path)
 
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) { // file does not exist
-			if err := os.MkdirAll(dirPath, 0755); err != nil { // try to create path
+	if _, err := AFS.Stat(path); err != nil {
+		if ok, _ := afero.Exists(AFS, path); !ok { // file does not exist
+			if err := AFS.MkdirAll(dirPath, 0755); err != nil { // try to create path
+				// TODO: don't Fatalf
 				log.Fatalf("error creating destination directory: " + err.Error()) // crash and burn if you can't
 			}
 		}
 		return err
 	} else { // file exists...
-		if err := verifyKctlDownload(version, path, log); err != nil {
+		if err := verifyKctlDownload(version, path, AFS, log); err != nil {
 			log.Debug(err.Error()) // ...but checksum don't match :(
 			return err
 		}
@@ -85,7 +87,7 @@ func checkPath(version string, path string, log *zap.SugaredLogger) error {
 	}
 }
 
-func verifyKctlDownload(version string, path string, log *zap.SugaredLogger) error {
+func verifyKctlDownload(version string, path string, AFS afero.Fs, log *zap.SugaredLogger) error {
 	if skipVerify {
 		log.Info("skipping file verification")
 		return nil
@@ -101,8 +103,9 @@ func verifyKctlDownload(version string, path string, log *zap.SugaredLogger) err
 	bodyData, _ := ioutil.ReadAll(resp.Body)
 	checksumRef := strings.TrimSuffix(string(bodyData), "\n")
 
-	f, err := os.Open(path)
+	f, err := AFS.Open(path)
 	if err != nil {
+		// TODO: don't Fatal
 		log.Fatal(err)
 	}
 	defer f.Close()

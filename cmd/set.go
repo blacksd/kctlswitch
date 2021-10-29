@@ -22,6 +22,7 @@ import (
 	"os"
 
 	"github.com/manifoldco/promptui"
+	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
@@ -86,7 +87,7 @@ func setKubectlVersion(cmd *cobra.Command, args []string) {
 			myLoggerSet.Fatal(err)
 		}
 	}
-
-	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, noVerify, myLoggerSet)
+	OSFS := afero.NewOsFs()
+	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, noVerify, OSFS, myLoggerSet)
 	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), forceOverwrite, myLoggerSet)
 }
