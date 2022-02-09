@@ -16,13 +16,15 @@ limitations under the License.
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"kctlswitch/lib"
 	"kctlswitch/logging"
+	"net/http"
 	"os"
 
 	"github.com/manifoldco/promptui"
-	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +36,7 @@ var setCmd = &cobra.Command{
 	Long: `Download, verify and set a kubectl version.
 	
 	You can from the constraint`,
-	Run: setKubectlVersion,
+	RunE: setKubectlVersion,
 }
 
 var constraint string
@@ -49,30 +51,34 @@ func init() {
 	homeDir, _ := os.UserHomeDir()
 	srcPath = fmt.Sprintf("%s/.kctlswitch/bin/", homeDir)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// setCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	setCmd.Flags().StringVarP(&constraint, "constraint", "c", "", "The kubectl semver constraint to use.")
-	setCmd.Flags().BoolVarP(&useLatestVersion, "use-latest", "l", false, "Use the latest version in constraint, if results are more than one.")
+	setCmd.Flags().BoolVarP(&useLatestVersion, "use-latest", "l", false, "Use the latest version in constraint.")
 	setCmd.Flags().BoolVarP(&noVerify, "no-verify", "n", false, "Skip checking the version's hash.")
-	setCmd.Flags().BoolVarP(&forceOverwrite, "force", "f", false, "Overwrite any non-symlink 'kubectl' existing in the destination.")
+	setCmd.Flags().BoolVarP(&forceOverwrite, "force", "f", false, "Overwrite a non-symlinked 'kubectl' existing in the destination.")
 
-	setCmd.MarkFlagRequired("constraint")
 }
 
-func setKubectlVersion(cmd *cobra.Command, args []string) {
+func setKubectlVersion(cmd *cobra.Command, args []string) error {
 
-	myLoggerSet := logging.WithContext(cmd.Context())
-	myLoggerSet.Info("set subcommand invoked")
+	setLogger := logging.WithContext(cmd.Context())
+	setLogger.Debug("set subcommand invoked")
 
-	kctlVersions, err := lib.KctlVersionList(constraint, myLoggerSet)
+	if constraint == "" {
+		if useLatestVersion {
+			defaultConstraint, err := fetchKubernetesStableVersion()
+			if err != nil {
+				return errors.New("can't fetch the latest stable version")
+			}
+			constraint = defaultConstraint
+		} else {
+			return errors.New("no constraints and no latest, I have no clue what you want")
+		}
+
+	}
+
+	kctlVersions, err := lib.KctlVersionList(constraint, setLogger)
 	if err != nil {
-		myLoggerSet.Fatal(err)
+		setLogger.Fatal(err)
 	}
 	var result string
 	if (len(kctlVersions) == 1) || useLatestVersion {
@@ -84,10 +90,28 @@ func setKubectlVersion(cmd *cobra.Command, args []string) {
 		}
 		_, result, err = prompt.Run()
 		if err != nil {
-			myLoggerSet.Fatal(err)
+			setLogger.Fatal(err)
 		}
 	}
-	OSFS := afero.NewOsFs()
-	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, noVerify, OSFS, myLoggerSet)
-	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("path").Value.String(), forceOverwrite, OSFS, myLoggerSet)
+	lib.DownloadKctl(fmt.Sprintf("v%s", result), srcPath, noVerify)
+	lib.InstallKctlVersion(result, srcPath, rootCmd.PersistentFlags().Lookup("bin").Value.String(), forceOverwrite)
+	return nil
+}
+
+func fetchKubernetesStableVersion() (string, error) {
+	resp, err := http.DefaultClient.Get("https://dl.k8s.io/release/stable.txt")
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+		bodyString := string(bodyBytes)
+		return bodyString, nil
+	}
+	return "", errors.New("unexpected error")
 }

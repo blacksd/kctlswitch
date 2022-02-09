@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"syscall"
 
-	"github.com/spf13/afero"
-	"go.uber.org/zap"
 	"golang.org/x/sys/unix"
 )
 
@@ -22,36 +20,33 @@ var (
 	ErrNotSymlinkFilePresent error = fmt.Errorf("there's already a %s in path, and it's not a symlink; please set the --force flag to overwrite it", defaultKctlBinaryName)
 )
 
-func InstallKctlVersion(kctlVersion string, srcPath string, dstPath string, overwrite bool, AFS afero.Fs, log *zap.SugaredLogger) error {
-	if err := validateDstPath(dstPath, overwrite, AFS); err != nil {
-		log.Error(err)
+func InstallKctlVersion(kctlVersion string, srcBinaryPath string, dstSymlinkPath string, overwrite bool) error {
+	if err := validateDstSymlinkPath(dstSymlinkPath, overwrite); err != nil {
+		libLogger.Error(err)
 		return err
 	}
 
-	srcBinary := filepath.Join(srcPath, fmt.Sprintf("%s.v%s", defaultKctlBinaryName, kctlVersion))
-	dstBinary := filepath.Join(dstPath, defaultKctlBinaryName)
+	srcBinary := filepath.Join(srcBinaryPath, fmt.Sprintf("%s.v%s", defaultKctlBinaryName, kctlVersion))
+	dstSymlink := filepath.Join(dstSymlinkPath, defaultKctlBinaryName)
 
-	// if currentDestination, err := os.Lstat(dstBinary); err == nil {
-
-	// if currentDestination, _, err := AFS.(*afero.OsFs).LstatIfPossible(dstBinary); err == nil {
-	if currentDestination, _, err := AFS.(afero.Lstater).LstatIfPossible(dstBinary); err == nil {
-		log.Debug("found a symlink pointing to %s", currentDestination.Name())
-		if err := AFS.Remove(dstBinary); err != nil {
-			log.Error("failed to unlink the existing link")
+	if currentDestination, err := os.Lstat(dstSymlink); err == nil {
+		libLogger.Debug("found a symlink pointing to %s", currentDestination.Name())
+		if err := os.Remove(dstSymlink); err != nil {
+			libLogger.Error("failed to unlink the existing link")
 			return err
 		}
 	}
 
-	if err := AFS.(afero.Symlinker).SymlinkIfPossible(srcBinary, dstBinary); err != nil {
+	if err := os.Symlink(srcBinary, dstSymlink); err != nil {
 		return err
 	}
-	log.Info("symlink successfully set")
+	libLogger.Info("symlink successfully set")
 	return nil
 }
 
-func validateDstPath(path string, overwrite bool, AFS afero.Fs) error {
+func validateDstSymlinkPath(path string, overwrite bool) error {
 	// check the path is valid (name and it's a directory)
-	pathInfo, err := AFS.Stat(path)
+	pathInfo, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
@@ -60,13 +55,12 @@ func validateDstPath(path string, overwrite bool, AFS afero.Fs) error {
 	}
 
 	// path is not writable
-	// BUG: fix this, it's not going to work with afero
 	if err := unix.Access(path, unix.W_OK); err != nil {
 		return err
 	}
 
 	defaultBinary := filepath.Join(path, defaultKctlBinaryName)
-	if binInfo, err := AFS.Stat(defaultBinary); err == nil {
+	if binInfo, err := os.Stat(defaultBinary); err == nil {
 		if (binInfo.Mode()&os.ModeSymlink != os.ModeSymlink) && !overwrite {
 			return ErrNotSymlinkFilePresent
 		}
