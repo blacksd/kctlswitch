@@ -55,7 +55,6 @@ func init() {
 	setCmd.Flags().BoolVarP(&useLatestVersion, "use-latest", "l", false, "Use the latest version in constraint.")
 	setCmd.Flags().BoolVarP(&noVerify, "no-verify", "n", false, "Skip checking the version's hash.")
 	setCmd.Flags().BoolVarP(&forceOverwrite, "force", "f", false, "Overwrite a non-symlinked 'kubectl' existing in the destination.")
-
 }
 
 func setKubectlVersion(cmd *cobra.Command, args []string) error {

@@ -29,18 +29,22 @@ func InstallKctlVersion(kctlVersion string, srcBinaryPath string, dstSymlinkPath
 	srcBinary := filepath.Join(srcBinaryPath, fmt.Sprintf("%s.v%s", defaultKctlBinaryName, kctlVersion))
 	dstSymlink := filepath.Join(dstSymlinkPath, defaultKctlBinaryName)
 
-	if currentDestination, err := os.Lstat(dstSymlink); err == nil {
-		libLogger.Debug("found a symlink pointing to %s", currentDestination.Name())
-		if err := os.Remove(dstSymlink); err != nil {
-			libLogger.Error("failed to unlink the existing link")
-			return err
+	if currentDestination, err := filepath.EvalSymlinks(dstSymlink); err == nil {
+		libLogger.Debugf("found a symlink pointing to %s", currentDestination)
+		if currentDestination == srcBinary {
+			libLogger.Info("symlink already set")
+		} else {
+			if err := os.Remove(dstSymlink); err != nil {
+				libLogger.Error("failed to unlink the existing link")
+				return err
+			}
+			if err := os.Symlink(srcBinary, dstSymlink); err != nil {
+				return err
+			}
+			libLogger.Info("symlink successfully set")
 		}
 	}
 
-	if err := os.Symlink(srcBinary, dstSymlink); err != nil {
-		return err
-	}
-	libLogger.Info("symlink successfully set")
 	return nil
 }
 
@@ -58,9 +62,8 @@ func validateDstSymlinkPath(path string, overwrite bool) error {
 	if err := unix.Access(path, unix.W_OK); err != nil {
 		return err
 	}
-
 	defaultBinary := filepath.Join(path, defaultKctlBinaryName)
-	if binInfo, err := os.Stat(defaultBinary); err == nil {
+	if binInfo, err := os.Lstat(defaultBinary); err == nil {
 		if (binInfo.Mode()&os.ModeSymlink != os.ModeSymlink) && !overwrite {
 			return ErrNotSymlinkFilePresent
 		}
